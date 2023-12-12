@@ -26,50 +26,6 @@ function comparePasswords(inputPassword, hashedPassword) {
   return bcrypt.compareSync(inputPassword, hashedPassword);
 }
 
-
-function sendPasswordResetEmail(username, temporaryPassword) {
-  let transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: 'letsplannn@gmail.com',
-      pass: 'Letsplannn@1'
-    }
-  });
-
-  pool.getConnection((err, connection) => {
-    if (err) {
-      return console.error('Error connecting to the database:', err.message);
-    }
-
-    const getEmail = 'SELECT email FROM Users WHERE username = ?';
-    connection.query(getEmail, [username], (error, results) => {
-      if (error) {
-        connection.release();
-        return console.error('Error executing query:', error.message);
-      }
-
-      const userMail = results[0].email;
-
-      const resetLink = `http://localhost:4200/reset-password?token=${temporaryPassword}`;
-      let mailOptions = {
-        from: 'letsplannn@gmail.com',
-        to: userMail,
-        subject: 'Password Reset Link',
-        text: `Dear ${username},\n\nPlease click on the following link to reset your password:\n\n${resetLink}\n\nThank you,\nThe Support Team`
-      };
-
-      transporter.sendMail(mailOptions, (emailError, info) => {
-        connection.release();
-
-        if (emailError) {
-          return console.error('Error sending email:', emailError.message);
-        }
-        console.log('Email sent:', info.response);
-      });
-    });
-  });
-}
-
 function signup(firstName, lastName, email, username, password, callback) {
   const pwd = encryptPassword(password);
 
@@ -144,40 +100,6 @@ function login(username, password, callback) {
   });
 }
 
-
-function forgotPassword(username, callback) {
-  pool.getConnection((err, connection) => {
-    if (err) {
-      return callback({ success: false, message: 'Error connecting to the database' });
-    }
-
-    const checkIfUserExists = 'SELECT * FROM Users WHERE username = ?';
-    connection.query(checkIfUserExists, [username], (error, results, fields) => {
-      if (error) {
-        connection.release();
-        return callback({ success: false, message: 'Error executing query' });
-      }
-
-      if (results.length === 0) {
-        connection.release();
-        return callback({ success: false, message: 'Username does not exist' });
-      }
-
-      const token = generateToken();
-
-      const storeResetTokenQuery = 'UPDATE Users SET reset_token = ? WHERE username = ?';
-      connection.query(storeResetTokenQuery, [token, username], (error, updateResults) => {
-        connection.release();
-        if (error) {
-          return callback({ success: false, message: 'Error storing reset token' });
-        }
-
-        return callback({ success: true, message: 'Password reset link sent successfully' });
-      });
-    });
-  });
-}
-
 function refreshToken(token, callback) {
   jwt.verify(token, '12345', (err, decoded) => {
     if (err) {
@@ -223,10 +145,8 @@ module.exports = {
   encryptPassword,
   comparePasswords,
   generateToken,
-  sendPasswordResetEmail,
   signup,
   login,
-  forgotPassword,
   refreshToken,
   getUserIdFromToken
 };
